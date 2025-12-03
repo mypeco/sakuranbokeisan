@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>10が見える！さくらんぼ計算</title>
+<style>
+  body { font-family: 'Arial Rounded MT Bold', sans-serif; text-align: center; background-color: #fff9c4; margin: 0; padding: 10px; touch-action: manipulation; }
+  h1 { color: #ff6f00; font-size: 24px; margin: 10px 0; }
+  
+  /* 計算エリア全体を一つの「枠」として定義 */
+  .calc-wrapper {
+      display: inline-block;
+      position: relative;
+      padding: 20px;
+      margin-top: 30px;
+  }
+
+  /* 計算エリアの中身 */
+  .calc-area { 
+      font-size: 60px; font-weight: bold; 
+      display: flex; justify-content: center; align-items: flex-start; gap: 5px;
+      position: relative; 
+      z-index: 2;
+  }
+  .number { padding: 10px; position: relative; }
+  
+  /* ★修正：角度きつめ＆長めウインナー */
+  .ten-circle {
+      position: absolute;
+      /* 上の数字をしっかり囲む位置 */
+      top: -20px; 
+      left: 5px; 
+      /* 幅と高さの調整 */
+      width: 30%;    /* 少し幅を持たせる */
+      height: 130%;  /* ググッと長くして下まで届かせる */
+      border: 6px solid rgba(255, 87, 34, 0.5);
+      border-radius: 50px; 
+      /* 角度を -15deg から -35deg に変更（もっと倒す） */
+      transform: rotate(-35deg) scale(0.9); 
+      background-color: rgba(255, 204, 188, 0.3);
+      opacity: 0;
+      transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none; 
+      z-index: 1;
+  }
+  .ten-circle.show {
+      opacity: 1;
+      transform: rotate(-35deg) scale(1); /* 角度を維持 */
+  }
+
+  /* さくらんぼ */
+  .sakuranbo-container { position: relative; display: flex; flex-direction: column; align-items: center; z-index: 2; }
+  .sakuranbo-legs { display: flex; justify-content: center; margin-top: -10px; }
+  .leg { width: 4px; height: 45px; background-color: #555; margin: 0 18px; border-radius: 2px; }
+  .leg-left { transform: rotate(25deg); }
+  .leg-right { transform: rotate(-25deg); }
+  
+  .inputs { display: flex; gap: 15px; margin-top: 5px; }
+  .input-box { width: 55px; height: 55px; border: 3px solid #ccc; border-radius: 50%; font-size: 32px; text-align: center; line-height: 55px; background: white; transition: 0.2s; }
+  .input-box.active { border-color: #2196f3; background-color: #e3f2fd; transform: scale(1.1); box-shadow: 0 4px 10px rgba(33, 150, 243, 0.3); }
+  .input-box.correct { border-color: #4caf50; background-color: #e8f5e9; color: #2e7d32; }
+  .input-box.wrong { border-color: #f44336; background-color: #ffebee; animation: shake 0.3s; }
+
+  @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); } }
+
+  .answer-box { width: 90px; height: 70px; border: 3px solid #333; border-radius: 10px; margin-left: 10px; font-size: 45px; display: flex; align-items: center; justify-content: center; background: white; z-index: 2; }
+
+  /* テンキー */
+  .keypad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 450px; margin: 30px auto; padding: 10px; }
+  .key { background-color: #fff; border: 2px solid #ffcc80; border-bottom: 5px solid #ffb74d; border-radius: 15px; height: 60px; font-size: 30px; font-weight: bold; color: #e65100; cursor: pointer; transition: 0.1s; }
+  .key:active { transform: translateY(3px); border-bottom: 2px solid #ffb74d; }
+  .key-del { background-color: #ffebee; border-color: #ef9a9a; border-bottom-color: #e57373; color: #c62828; }
+
+  /* メッセージエリア */
+  #message { height: 40px; font-size: 24px; color: #d81b60; font-weight: bold; margin-top: 5px; }
+  .btn-next { padding: 15px 40px; font-size: 24px; background: linear-gradient(to bottom, #42a5f5, #1976d2); color: white; border: none; border-radius: 50px; cursor: pointer; display: none; margin: 20px auto; box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4); }
+</style>
+</head>
+<body>
+
+<h1>🍒 10をつくろう！</h1>
+
+<div class="calc-wrapper">
+  <div class="ten-circle" id="ten-circle"></div>
+
+  <div class="calc-area">
+    <div class="number" id="num1">8</div>
+    <div class="number">+</div>
+    
+    <div class="sakuranbo-container">
+      <div class="number" id="num2">7</div>
+      <div class="sakuranbo-legs">
+        <div class="leg leg-left"></div>
+        <div class="leg leg-right"></div>
+      </div>
+      <div class="inputs">
+        <div class="input-box" id="cherry1"></div>
+        <div class="input-box" id="cherry2"></div>
+      </div>
+    </div>
+
+    <div class="number">=</div>
+    <div class="answer-box" id="final-answer"></div>
+  </div>
+</div>
+
+<div id="message"></div>
+<button class="btn-next" onclick="nextProblem()">つぎのもんだい ➔</button>
+
+<div class="keypad">
+  <button class="key" onclick="inputNum(1)">1</button>
+  <button class="key" onclick="inputNum(2)">2</button>
+  <button class="key" onclick="inputNum(3)">3</button>
+  <button class="key" onclick="inputNum(4)">4</button>
+  <button class="key" onclick="inputNum(5)">5</button>
+  <button class="key" onclick="inputNum(6)">6</button>
+  <button class="key" onclick="inputNum(7)">7</button>
+  <button class="key" onclick="inputNum(8)">8</button>
+  <button class="key" onclick="inputNum(9)">9</button>
+  <button class="key" onclick="inputNum(0)">0</button>
+  <button class="key key-del" onclick="deleteNum()">けす</button>
+</div>
+
+<script>
+  let problem = {};
+  let currentStep = 0;
+  
+  function nextProblem() {
+    let n1 = Math.floor(Math.random() * 8) + 2; 
+    if(n1 < 6) n1 = 6 + Math.floor(Math.random() * 4); 
+    let n2 = Math.floor(Math.random() * 9) + 1;
+    
+    while (n1 + n2 <= 10) {
+      n2 = Math.floor(Math.random() * 9) + 1;
+    }
+
+    problem = {
+      n1: n1,
+      n2: n2,
+      cherry1: 10 - n1,
+      cherry2: n2 - (10 - n1),
+      ans: n1 + n2
+    };
+
+    document.getElementById('num1').innerText = problem.n1;
+    document.getElementById('num2').innerText = problem.n2;
+    
+    document.getElementById('cherry1').innerText = "";
+    document.getElementById('cherry2').innerText = "";
+    document.getElementById('final-answer').innerText = "";
+    document.getElementById('cherry1').className = "input-box";
+    document.getElementById('cherry2').className = "input-box";
+    document.getElementById('final-answer').className = "answer-box";
+    document.getElementById('message').innerText = "";
+    document.querySelector('.btn-next').style.display = "none";
+    
+    document.getElementById('ten-circle').classList.remove('show');
+
+    currentStep = 0;
+    updateFocus();
+  }
+
+  function updateFocus() {
+    document.getElementById('cherry1').classList.remove('active');
+    document.getElementById('cherry2').classList.remove('active');
+    document.getElementById('final-answer').style.borderColor = "#333";
+
+    if (currentStep === 0) document.getElementById('cherry1').classList.add('active');
+    else if (currentStep === 1) document.getElementById('cherry2').classList.add('active');
+    else if (currentStep === 2) document.getElementById('final-answer').style.borderColor = "#2196f3";
+  }
+
+  function inputNum(num) {
+    if (currentStep > 2) return;
+
+    let targetId = "";
+    let correctVal = 0;
+
+    if (currentStep === 0) { targetId = 'cherry1'; correctVal = problem.cherry1; }
+    else if (currentStep === 1) { targetId = 'cherry2'; correctVal = problem.cherry2; }
+    else if (currentStep === 2) { targetId = 'final-answer'; correctVal = problem.ans; }
+
+    const el = document.getElementById(targetId);
+    
+    if (currentStep < 2) {
+        el.innerText = num;
+        if (num === correctVal) {
+            el.classList.add('correct');
+            
+            if(currentStep === 0) {
+                document.getElementById('ten-circle').classList.add('show');
+            }
+
+            currentStep++;
+            updateFocus();
+        } else {
+            el.classList.add('wrong');
+            setTimeout(() => el.classList.remove('wrong'), 500);
+        }
+    } else {
+        let currentText = el.innerText + num;
+        el.innerText = currentText;
+        
+        if (parseInt(currentText) === correctVal) {
+            el.style.backgroundColor = "#e8f5e9";
+            el.style.color = "#2e7d32";
+            document.querySelector('.btn-next').style.display = "block";
+            currentStep++; 
+        } else if (currentText.length >= String(correctVal).length) {
+             el.style.backgroundColor = "#ffebee";
+             setTimeout(() => {
+                 el.innerText = "";
+                 el.style.backgroundColor = "white";
+             }, 500);
+        }
+    }
+  }
+
+  function deleteNum() {
+      if (currentStep === 2) {
+          document.getElementById('final-answer').innerText = "";
+      }
+  }
+
+  nextProblem();
+</script>
+
+</body>
+</html>
